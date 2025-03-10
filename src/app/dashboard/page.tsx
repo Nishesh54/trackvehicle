@@ -6,10 +6,11 @@ import { useAuthStore, useLocationStore } from '../../lib/store';
 import Header from '../../components/Header';
 import MapComponent from '../../components/MapComponent';
 import VehicleList from '../../components/VehicleList';
+import DriverModePanel from '../../components/DriverModePanel';
 
 export default function DashboardPage() {
   const { isAuthenticated, user } = useAuthStore();
-  const { isTracking, userLocation } = useLocationStore();
+  const { isTracking, userLocation, isDriverMode } = useLocationStore();
   const router = useRouter();
   
   useEffect(() => {
@@ -28,9 +29,11 @@ export default function DashboardPage() {
       <Header />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Emergency Vehicle Dashboard</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">
+          {isDriverMode ? 'Emergency Driver Dashboard' : 'Emergency Vehicle Dashboard'}
+        </h1>
         
-        {user && (
+        {user && !isDriverMode && (
           <div className="bg-white shadow rounded-lg p-4 mb-6">
             <div className="flex justify-between items-center">
               <div>
@@ -65,18 +68,37 @@ export default function DashboardPage() {
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="p-4 border-b">
                 <h2 className="text-lg font-medium">Location Map</h2>
-                <p className="text-sm text-gray-500">View nearby emergency vehicles</p>
+                <p className="text-sm text-gray-500">
+                  {isDriverMode 
+                    ? "View client locations and your position" 
+                    : "View nearby emergency vehicles"
+                  }
+                </p>
               </div>
               <MapComponent />
+            </div>
+            
+            {/* Driver Mode Panel - Only visible in desktop view for large screens */}
+            <div className="mt-6 hidden lg:block">
+              <DriverModePanel />
             </div>
           </div>
           
           <div className="lg:col-span-1">
+            {/* Driver Mode Panel - Visible in mobile view */}
+            <div className="mb-6 lg:hidden">
+              <DriverModePanel />
+            </div>
+            
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="p-4 border-b flex justify-between items-center">
                 <div>
-                  <h2 className="text-lg font-medium">Nearby Vehicles</h2>
-                  <p className="text-sm text-gray-500">Sorted by distance</p>
+                  <h2 className="text-lg font-medium">
+                    {isDriverMode ? 'Client Requests' : 'Nearby Vehicles'}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {isDriverMode ? 'People needing assistance' : 'Sorted by distance'}
+                  </p>
                 </div>
                 {isTracking && (
                   <div className="flex items-center text-xs text-green-600">

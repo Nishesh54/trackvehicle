@@ -19,6 +19,7 @@ export interface Vehicle {
   status: 'available' | 'responding' | 'unavailable';
   estimatedArrivalTime: number; // in minutes
   distance?: number; // Optional distance from user
+  isDriverVehicle?: boolean; // Flag for vehicles controlled by drivers
 }
 
 export interface User {
@@ -29,6 +30,7 @@ export interface User {
     lat: number;
     lng: number;
   } | null;
+  isDriver?: boolean; // Flag to identify driver accounts
 }
 
 // Mock data for emergency vehicles
