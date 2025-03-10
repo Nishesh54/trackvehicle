@@ -11,9 +11,6 @@ export const VEHICLE_TYPES = {
 // Emergency request types
 export const REQUEST_TYPES = {
   MEDICAL: 'Medical Emergency',
-  FIRE: 'Fire Emergency',
-  POLICE: 'Police Emergency',
-  OTHER: 'Other Emergency',
 };
 
 // Request status types
@@ -662,7 +659,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   }
 }));
 
-// Add some mock emergency requests
+// Adjust mock emergency requests
 setTimeout(() => {
   const mockRequests: EmergencyRequest[] = [
     {
@@ -684,43 +681,32 @@ setTimeout(() => {
           isDriver: false
         }
       ]
-    },
-    {
-      id: 'request-2',
-      userId: 'user-2',
-      userName: 'Jane Smith',
-      location: { lat: 51.508, lng: -0.095 },
-      status: REQUEST_STATUS.PENDING,
-      type: REQUEST_TYPES.FIRE,
-      description: 'Small kitchen fire in apartment building',
-      createdAt: Date.now() - 180000, // 3 minutes ago
-      messages: []
     }
   ];
-  
+
   useLocationStore.getState().setVehicles(mockVehicles);
-  
+
   // Add mock emergency requests
   const currentState = useLocationStore.getState();
   useLocationStore.setState({
     ...currentState,
     activeRequests: mockRequests
   });
-  
+
   // Simulate vehicle movement at regular intervals
   setInterval(() => {
     const { vehicles, isDriverMode, driverVehicleId } = useLocationStore.getState();
-    
+
     // Move vehicles slightly in random directions
     const updatedVehicles = vehicles.map(vehicle => {
       // Skip driver's vehicle - it's updated based on real GPS
       if (isDriverMode && vehicle.id === driverVehicleId) {
         return vehicle;
       }
-      
+
       const latChange = (Math.random() - 0.5) * 0.002; // Small random change
       const lngChange = (Math.random() - 0.5) * 0.002;
-      
+
       return {
         ...vehicle,
         location: {
@@ -729,7 +715,7 @@ setTimeout(() => {
         }
       };
     });
-    
+
     useLocationStore.getState().setVehicles(updatedVehicles);
   }, 5000); // Update every 5 seconds
 }, 100);
