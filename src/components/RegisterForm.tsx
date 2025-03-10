@@ -1,5 +1,6 @@
 import React, { useState, FormEvent } from 'react';
 import { useAuthStore } from '../lib/store';
+import { USER_TYPES } from '../lib/supabase';
 import Button from './Button';
 
 const RegisterForm = () => {
@@ -7,6 +8,7 @@ const RegisterForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [userType, setUserType] = useState(USER_TYPES.CLIENT);
   const { register, isLoading, error, setError } = useAuthStore();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -29,7 +31,7 @@ const RegisterForm = () => {
     }
     
     try {
-      await register(name, email, password);
+      await register(name, email, password, userType);
       window.location.href = '/dashboard';
     } catch (err) {
       console.error('Registration error:', err);
@@ -89,7 +91,7 @@ const RegisterForm = () => {
           />
         </div>
         
-        <div className="mb-6">
+        <div className="mb-4">
           <label htmlFor="confirmPassword" className="block text-gray-700 text-sm font-medium mb-1">
             Confirm Password
           </label>
@@ -103,19 +105,62 @@ const RegisterForm = () => {
           />
         </div>
         
+        <div className="mb-6">
+          <label className="block text-gray-700 text-sm font-medium mb-1">
+            Register As
+          </label>
+          <div className="flex space-x-4">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="userType"
+                value={USER_TYPES.CLIENT}
+                checked={userType === USER_TYPES.CLIENT}
+                onChange={() => setUserType(USER_TYPES.CLIENT)}
+                className="mr-2"
+              />
+              <span>Client</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="userType"
+                value={USER_TYPES.DRIVER}
+                checked={userType === USER_TYPES.DRIVER}
+                onChange={() => setUserType(USER_TYPES.DRIVER)}
+                className="mr-2"
+              />
+              <span>Driver</span>
+            </label>
+          </div>
+          
+          {userType === USER_TYPES.DRIVER && (
+            <div className="mt-2 p-3 bg-blue-50 rounded-md text-sm text-blue-700">
+              <p className="flex items-center">
+                <span className="mr-2">🚑</span>
+                You're registering as an emergency vehicle driver
+              </p>
+              <p className="mt-1 text-xs">
+                After registration, you'll be able to set your vehicle type and respond to emergency requests.
+              </p>
+            </div>
+          )}
+        </div>
+        
         <Button
           type="submit"
           fullWidth
           isLoading={isLoading}
+          variant={userType === USER_TYPES.DRIVER ? "emergency" : "primary"}
         >
-          Register
+          Register {userType === USER_TYPES.DRIVER ? "as Driver" : "as Client"}
         </Button>
       </form>
       
       <div className="mt-4 text-center text-sm text-gray-600">
         Already have an account?{' '}
         <a href="/login" className="text-primary-600 hover:text-primary-500">
-          Sign up
+          Log in
         </a>
       </div>
     </div>

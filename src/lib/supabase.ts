@@ -7,6 +7,12 @@ const supabaseKey = 'your-anon-key';
 // Create a single supabase client for the entire app
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Types of users
+export const USER_TYPES = {
+  CLIENT: 'client',
+  DRIVER: 'driver',
+};
+
 // Types
 export interface Vehicle {
   id: string;
@@ -22,6 +28,15 @@ export interface Vehicle {
   isDriverVehicle?: boolean; // Flag for vehicles controlled by drivers
 }
 
+export interface DriverInfo {
+  licenseNumber: string;
+  vehicleType: string;
+  vehicleCallSign: string;
+  vehicleId?: string;
+  yearsOfExperience: number;
+  specialization?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -30,7 +45,10 @@ export interface User {
     lat: number;
     lng: number;
   } | null;
-  isDriver?: boolean; // Flag to identify driver accounts
+  userType: typeof USER_TYPES[keyof typeof USER_TYPES]; // Client or Driver
+  isDriver?: boolean; // Flag to identify driver accounts (deprecated - use userType)
+  phoneNumber?: string;
+  driverInfo?: DriverInfo; // Only present for drivers
 }
 
 // Mock data for emergency vehicles
@@ -77,37 +95,68 @@ export const mockVehicles: Vehicle[] = [
   },
 ];
 
+// Mock users for both client and driver types
+export const mockUsers = {
+  client: {
+    id: '1',
+    name: 'John Doe',
+    email: 'client@example.com',
+    location: null,
+    userType: USER_TYPES.CLIENT,
+    phoneNumber: '+1234567890'
+  },
+  driver: {
+    id: '2',
+    name: 'Jane Smith',
+    email: 'driver@example.com',
+    location: null,
+    userType: USER_TYPES.DRIVER,
+    phoneNumber: '+0987654321',
+    driverInfo: {
+      licenseNumber: 'DL-12345',
+      vehicleType: 'Ambulance',
+      vehicleCallSign: 'AMB-501',
+      yearsOfExperience: 5,
+      specialization: 'Medical Emergency'
+    }
+  }
+};
+
 // Mock authentication
 export const mockAuth = {
   currentUser: null as User | null,
-  login: (email: string, password: string): Promise<User> => {
+
+  // Login with user type selection
+  login: (email: string, password: string, userType: string): Promise<User> => {
     return new Promise((resolve) => {
       setTimeout(() => {
-        const user = {
-          id: '1',
-          name: 'Test User',
-          email,
-          location: null,
-        };
+        // Choose the correct mock user based on user type
+        const user = userType === USER_TYPES.DRIVER 
+          ? mockUsers.driver 
+          : mockUsers.client;
+        
         mockAuth.currentUser = user;
         resolve(user);
       }, 500);
     });
   },
-  register: (name: string, email: string, password: string): Promise<User> => {
+
+  register: (name: string, email: string, password: string, userType: string): Promise<User> => {
     return new Promise((resolve) => {
       setTimeout(() => {
         const user = {
-          id: '1',
+          id: Math.random().toString(36).substring(2, 9),
           name,
           email,
           location: null,
+          userType: userType === USER_TYPES.DRIVER ? USER_TYPES.DRIVER : USER_TYPES.CLIENT,
         };
         mockAuth.currentUser = user;
         resolve(user);
       }, 500);
     });
   },
+
   logout: (): Promise<void> => {
     return new Promise((resolve) => {
       setTimeout(() => {

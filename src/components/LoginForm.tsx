@@ -1,11 +1,13 @@
 import React, { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../lib/store';
+import { USER_TYPES } from '../lib/supabase';
 import Button from './Button';
 
 const LoginForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [userType, setUserType] = useState(USER_TYPES.CLIENT);
   const { login, isLoading, error, setError } = useAuthStore();
   const router = useRouter();
 
@@ -19,7 +21,7 @@ const LoginForm = () => {
     }
     
     try {
-      await login(email, password);
+      await login(email, password, userType);
       router.push('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
@@ -51,7 +53,7 @@ const LoginForm = () => {
           />
         </div>
         
-        <div className="mb-6">
+        <div className="mb-4">
           <label htmlFor="password" className="block text-gray-700 text-sm font-medium mb-1">
             Password
           </label>
@@ -63,6 +65,36 @@ const LoginForm = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
             required
           />
+        </div>
+        
+        <div className="mb-6">
+          <label className="block text-gray-700 text-sm font-medium mb-1">
+            Login As
+          </label>
+          <div className="flex space-x-4">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="userType"
+                value={USER_TYPES.CLIENT}
+                checked={userType === USER_TYPES.CLIENT}
+                onChange={() => setUserType(USER_TYPES.CLIENT)}
+                className="mr-2"
+              />
+              <span>Client</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="userType"
+                value={USER_TYPES.DRIVER}
+                checked={userType === USER_TYPES.DRIVER}
+                onChange={() => setUserType(USER_TYPES.DRIVER)}
+                className="mr-2"
+              />
+              <span>Driver</span>
+            </label>
+          </div>
         </div>
         
         <Button

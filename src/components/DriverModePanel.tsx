@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useLocationStore, VEHICLE_TYPES } from '../lib/store';
+import { USER_TYPES } from '../lib/supabase';
+import { useAuthStore } from '../lib/store';
 
 const DriverModePanel = () => {
   const { 
@@ -15,11 +17,19 @@ const DriverModePanel = () => {
     respondToClient,
     userLocation
   } = useLocationStore();
-
+  
+  const { user } = useAuthStore();
   const [showingTypeSelector, setShowingTypeSelector] = useState(false);
+  
+  // Check if user is a driver
+  const isDriver = user?.userType === USER_TYPES.DRIVER;
 
   // Handle entering/exiting driver mode
   const handleToggleDriverMode = () => {
+    if (!isDriver) {
+      return; // Only drivers can toggle this
+    }
+    
     toggleDriverMode(!isDriverMode);
     
     // If entering driver mode, start tracking if not already
@@ -38,6 +48,11 @@ const DriverModePanel = () => {
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setDriverStatus(e.target.value as 'available' | 'responding' | 'unavailable');
   };
+
+  // If not a driver, don't show this panel
+  if (!isDriver) {
+    return null;
+  }
 
   return (
     <div className="bg-white shadow rounded-lg p-4">

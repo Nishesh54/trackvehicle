@@ -1,10 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../lib/store';
+import { USER_TYPES } from '../lib/supabase';
 import Button from './Button';
 
 const Header = () => {
-  const { isAuthenticated, logout } = useAuthStore();
+  const { isAuthenticated, logout, user } = useAuthStore();
+  const isDriver = user?.userType === USER_TYPES.DRIVER;
 
   return (
     <header className="bg-white shadow-sm">
@@ -24,12 +26,20 @@ const Header = () => {
                 <Link href="/dashboard" className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
                   Dashboard
                 </Link>
-                <Button 
-                  variant="outline" 
-                  onClick={() => logout()}
-                >
-                  Logout
-                </Button>
+                <div className="flex items-center">
+                  {isDriver && (
+                    <span className="mr-2 flex items-center text-emergency text-xs px-2 py-1 bg-emergency-light/30 rounded-full">
+                      <span className="mr-1">🚑</span> Driver
+                    </span>
+                  )}
+                  <Button 
+                    variant={isDriver ? "emergency" : "outline"} 
+                    onClick={() => logout()}
+                    className="text-sm"
+                  >
+                    Logout
+                  </Button>
+                </div>
               </>
             ) : (
               <>

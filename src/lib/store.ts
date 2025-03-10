@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { User, Vehicle, mockVehicles } from './supabase';
+import { User, Vehicle, mockVehicles, USER_TYPES } from './supabase';
 
 // Vehicle types for driver mode
 export const VEHICLE_TYPES = {
@@ -236,6 +236,18 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   },
   
   toggleDriverMode: (isDriver) => {
+    // Get user type from auth store
+    const user = useAuthStore.getState().user;
+    
+    // If user is not logged in as a driver and trying to enter driver mode, show error
+    if (isDriver && user && user.userType !== USER_TYPES.DRIVER) {
+      set({ 
+        error: 'You need to be logged in as a driver to access driver mode',
+        isDriverMode: false
+      });
+      return;
+    }
+    
     // If entering driver mode, create a new vehicle or use existing one
     if (isDriver) {
       const { userLocation, driverVehicleType, driverVehicleId, vehicles } = get();
@@ -747,8 +759,8 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, userType: string) => Promise<void>;
+  register: (name: string, email: string, password: string, userType: string) => Promise<void>;
   logout: () => Promise<void>;
   setError: (error: string | null) => void;
 }
@@ -759,7 +771,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: false,
   error: null,
   
-  login: async (email, password) => {
+  login: async (email, password, userType) => {
     set({ isLoading: true, error: null });
     try {
       // This would be a real Supabase auth call in production
@@ -770,17 +782,26 @@ export const useAuthStore = create<AuthState>((set) => ({
             name: 'Test User',
             email,
             location: null,
+            userType: userType === USER_TYPES.DRIVER ? USER_TYPES.DRIVER : USER_TYPES.CLIENT
           });
         }, 500);
       });
       
       set({ user, isAuthenticated: true, isLoading: false });
+      
+      // Auto-enable driver mode for driver users
+      if (user.userType === USER_TYPES.DRIVER) {
+        // Wait a bit for UI to update before enabling driver mode
+        setTimeout(() => {
+          useLocationStore.getState().toggleDriverMode(true);
+        }, 1000);
+      }
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to login', isLoading: false });
     }
   },
   
-  register: async (name, email, password) => {
+  register: async (name, email, password, userType) => {
     set({ isLoading: true, error: null });
     try {
       // This would be a real Supabase auth call in production
@@ -791,11 +812,20 @@ export const useAuthStore = create<AuthState>((set) => ({
             name,
             email,
             location: null,
+            userType: userType === USER_TYPES.DRIVER ? USER_TYPES.DRIVER : USER_TYPES.CLIENT
           });
         }, 500);
       });
       
       set({ user, isAuthenticated: true, isLoading: false });
+      
+      // Auto-enable driver mode for driver users
+      if (user.userType === USER_TYPES.DRIVER) {
+        // Wait a bit for UI to update before enabling driver mode
+        setTimeout(() => {
+          useLocationStore.getState().toggleDriverMode(true);
+        }, 1000);
+      }
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to register', isLoading: false });
     }

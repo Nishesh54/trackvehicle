@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useLocationStore } from '../../lib/store';
+import { USER_TYPES } from '../../lib/supabase';
 import Header from '../../components/Header';
 import MapComponent from '../../components/MapComponent';
 import VehicleList from '../../components/VehicleList';
@@ -13,15 +14,25 @@ import MessageCenter from '../../components/MessageCenter';
 
 export default function DashboardPage() {
   const { isAuthenticated, user } = useAuthStore();
-  const { isTracking, userLocation, isDriverMode, selectedRequest } = useLocationStore();
+  const { isTracking, userLocation, isDriverMode, selectedRequest, startTracking } = useLocationStore();
   const router = useRouter();
   
+  // On mount, check if user is authenticated and request location
   useEffect(() => {
     // Redirect to login if not authenticated
     if (!isAuthenticated) {
       router.push('/login');
+      return;
     }
-  }, [isAuthenticated, router]);
+    
+    // Request GPS location on page load
+    if (navigator.geolocation) {
+      startTracking();
+    }
+  }, [isAuthenticated, router, startTracking]);
+
+  // Determine if the user is a driver
+  const isDriver = user?.userType === USER_TYPES.DRIVER;
 
   if (!isAuthenticated) {
     return null; // Will redirect in useEffect
@@ -33,10 +44,13 @@ export default function DashboardPage() {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">
-          {isDriverMode ? 'Emergency Driver Dashboard' : 'Emergency Assistance Dashboard'}
+          {isDriver 
+            ? 'Emergency Driver Dashboard' 
+            : 'Emergency Assistance Dashboard'}
         </h1>
         
-        {user && !isDriverMode && !selectedRequest && (
+        {/* Location sharing notice for non-drivers and not when showing message center */}
+        {user && !isDriver && !selectedRequest && (
           <div className="bg-white shadow rounded-lg p-4 mb-6">
             <div className="flex justify-between items-center">
               <div>
@@ -74,7 +88,7 @@ export default function DashboardPage() {
               <div className="p-4 border-b">
                 <h2 className="text-lg font-medium">Location Map</h2>
                 <p className="text-sm text-gray-500">
-                  {isDriverMode 
+                  {isDriver 
                     ? "View client requests and your position" 
                     : "View nearby emergency vehicles"
                   }
@@ -87,11 +101,11 @@ export default function DashboardPage() {
             {selectedRequest ? (
               <MessageCenter />
             ) : (
-              !isDriverMode && <RequestEmergencyHelp />
+              !isDriver && <RequestEmergencyHelp />
             )}
             
-            {/* Driver Mode Panel for Large Screens */}
-            {!selectedRequest && (
+            {/* Driver Mode Panel - only show for drivers */}
+            {!selectedRequest && isDriver && (
               <div className="mt-6 hidden lg:block">
                 <DriverModePanel />
               </div>
@@ -100,15 +114,15 @@ export default function DashboardPage() {
           
           {/* Right Column - Vehicles List or Driver Requests */}
           <div className="lg:col-span-1">
-            {/* Driver Mode Panel for Mobile View */}
-            {!selectedRequest && (
+            {/* Driver Mode Panel for Mobile View - only show for drivers */}
+            {!selectedRequest && isDriver && (
               <div className="mb-6 lg:hidden">
                 <DriverModePanel />
               </div>
             )}
             
             {/* Driver Request List or Vehicle List */}
-            {isDriverMode ? (
+            {isDriver ? (
               !selectedRequest && <DriverRequestList />
             ) : (
               <div className="bg-white shadow rounded-lg overflow-hidden">
