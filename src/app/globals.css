@@ -26,4 +26,22 @@
   100% {
     transform: scale(1);
   }
+}
+
+/* Emergency request pulsing effect */
+.pulsing-request {
+  animation: emergencyPulse 1.5s infinite;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+}
+
+@keyframes emergencyPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 1);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 } 

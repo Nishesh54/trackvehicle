@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useLocationStore } from '../lib/store';
+import { useLocationStore, REQUEST_STATUS, REQUEST_TYPES } from '../lib/store';
 
 // Fix for default Leaflet marker icon issue in Next.js
 // Normally would be handled by proper asset configuration
@@ -63,6 +63,52 @@ const vehicleIcons = {
   })
 };
 
+// Emergency request icons based on type
+const requestIcons = {
+  [REQUEST_TYPES.MEDICAL]: L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-color:#ef4444;padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">🚑</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  }),
+  [REQUEST_TYPES.FIRE]: L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-color:#f97316;padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">🚒</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  }),
+  [REQUEST_TYPES.POLICE]: L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-color:#3b82f6;padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">🚓</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  }),
+  [REQUEST_TYPES.OTHER]: L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-color:#6b7280;padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">🚨</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  })
+};
+
+// Status-based markers with pulsing effect for pending requests
+const getRequestIcon = (type: string, status: string) => {
+  const icon = requestIcons[type] || requestIcons[REQUEST_TYPES.OTHER];
+  
+  // Add a pulsing class for pending requests
+  if (status === REQUEST_STATUS.PENDING) {
+    // Add a pulsing effect by modifying the icon
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div class="pulsing-request" style="background-color:${type === REQUEST_TYPES.MEDICAL ? '#ef4444' : type === REQUEST_TYPES.FIRE ? '#f97316' : type === REQUEST_TYPES.POLICE ? '#3b82f6' : '#6b7280'};padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">${type === REQUEST_TYPES.MEDICAL ? '🚑' : type === REQUEST_TYPES.FIRE ? '🚒' : type === REQUEST_TYPES.POLICE ? '🚓' : '🚨'}</div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+  }
+  
+  return icon;
+};
+
 // Fallback to default if icon not available
 const getVehicleIcon = (type: string, isDriverVehicle: boolean = false) => {
   if (isDriverVehicle) {
@@ -92,7 +138,9 @@ const Map = () => {
     nearbyVehicles, 
     isDriverMode, 
     driverVehicleId,
-    clientsTracking 
+    clientsTracking,
+    activeRequests,
+    selectRequest
   } = useLocationStore();
   
   // Default center to London if user location not available
@@ -105,21 +153,63 @@ const Map = () => {
     ? nearbyVehicles.find(v => v.id === driverVehicleId) 
     : null;
   
-  // Create connection lines between driver and assigned clients
-  const driverConnections = driverVehicle && isDriverMode && driverVehicle.status === 'responding'
-    ? nearbyVehicles
-        .filter(vehicle => vehicle.id !== driverVehicleId) // Filter out driver's own vehicle
-        .map(vehicle => {
-          // In a real app, we would check if this client is assigned to this driver
-          return {
-            positions: [
-              [driverVehicle.location.lat, driverVehicle.location.lng],
-              [vehicle.location.lat, vehicle.location.lng]
-            ] as [[number, number], [number, number]],
-            color: driverVehicle.status === 'responding' ? '#ef4444' : '#94a3b8'
-          };
-        })
-    : [];
+  // Filter requests to show based on driver/client mode
+  // Clients see only their own request, drivers see all pending and their accepted
+  const visibleRequests = activeRequests.filter(req => {
+    if (isDriverMode) {
+      // Drivers see pending requests and their accepted ones
+      return req.status === REQUEST_STATUS.PENDING || 
+             (req.status === REQUEST_STATUS.ACCEPTED && req.driverId === driverVehicleId);
+    } else {
+      // Clients see only their own requests
+      return req.userId === '1'; // In a real app, would check against authenticated user ID
+    }
+  });
+  
+  // Create connection lines between driver and assigned requests
+  const requestConnections = [];
+  
+  if (isDriverMode && driverVehicle) {
+    // Find all requests assigned to this driver that are accepted
+    const assignedRequests = activeRequests.filter(
+      req => req.status === REQUEST_STATUS.ACCEPTED && req.driverId === driverVehicleId
+    );
+    
+    // Create connections
+    assignedRequests.forEach(request => {
+      requestConnections.push({
+        positions: [
+          [driverVehicle.location.lat, driverVehicle.location.lng],
+          [request.location.lat, request.location.lng]
+        ] as [[number, number], [number, number]],
+        color: '#ef4444', // Red for emergency
+        dashArray: '5, 10',
+        weight: 3
+      });
+    });
+  } else if (!isDriverMode && userLocation) {
+    // For clients, show connections to the assigned vehicle
+    const userActiveRequest = activeRequests.find(
+      req => req.userId === '1' && req.status === REQUEST_STATUS.ACCEPTED
+    );
+    
+    if (userActiveRequest && userActiveRequest.driverId) {
+      // Find the driver vehicle
+      const driverVeh = nearbyVehicles.find(v => v.id === userActiveRequest.driverId);
+      
+      if (driverVeh) {
+        requestConnections.push({
+          positions: [
+            [userLocation.lat, userLocation.lng],
+            [driverVeh.location.lat, driverVeh.location.lng]
+          ] as [[number, number], [number, number]],
+          color: '#ef4444', // Red for emergency
+          dashArray: '5, 10',
+          weight: 3
+        });
+      }
+    }
+  }
   
   return (
     <MapContainer center={center} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
@@ -188,14 +278,61 @@ const Map = () => {
         ))
       }
       
-      {/* Draw connection lines between driver and clients */}
-      {driverConnections.map((connection, index) => (
+      {/* Emergency Request Markers */}
+      {visibleRequests.map(request => (
+        <Marker 
+          key={request.id}
+          position={[request.location.lat, request.location.lng]}
+          icon={getRequestIcon(request.type, request.status)}
+          eventHandlers={{
+            click: () => {
+              // Make request details viewable on click
+              selectRequest(request.id);
+            }
+          }}
+        >
+          <Popup>
+            <div className="text-sm">
+              <p className="font-bold">{request.type}</p>
+              <p className="text-xs">{request.userName}</p>
+              <p className="text-xs mt-1">
+                Status: 
+                <span className={
+                  request.status === REQUEST_STATUS.PENDING 
+                    ? 'text-yellow-600' 
+                    : request.status === REQUEST_STATUS.ACCEPTED
+                      ? 'text-green-600' 
+                      : 'text-gray-600'
+                }>
+                  {' '}{request.status}
+                </span>
+              </p>
+              <p className="text-xs mt-1 line-clamp-1">{request.description}</p>
+              {request.estimatedArrivalTime && (
+                <p className="text-xs mt-1">ETA: {request.estimatedArrivalTime} min</p>
+              )}
+              <button 
+                className="mt-2 text-xs px-2 py-1 bg-primary-600 text-white rounded"
+                onClick={() => selectRequest(request.id)}
+              >
+                {isDriverMode 
+                  ? (request.status === REQUEST_STATUS.PENDING ? 'Respond' : 'View Details') 
+                  : 'View Details'
+                }
+              </button>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+      
+      {/* Draw connection lines between drivers and requests */}
+      {requestConnections.map((connection, index) => (
         <Polyline 
           key={`connection-${index}`}
           positions={connection.positions}
           color={connection.color}
-          weight={2}
-          dashArray="5, 10"
+          weight={connection.weight || 2}
+          dashArray={connection.dashArray}
         />
       ))}
     </MapContainer>

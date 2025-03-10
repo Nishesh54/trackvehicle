@@ -7,10 +7,13 @@ import Header from '../../components/Header';
 import MapComponent from '../../components/MapComponent';
 import VehicleList from '../../components/VehicleList';
 import DriverModePanel from '../../components/DriverModePanel';
+import RequestEmergencyHelp from '../../components/RequestEmergencyHelp';
+import DriverRequestList from '../../components/DriverRequestList';
+import MessageCenter from '../../components/MessageCenter';
 
 export default function DashboardPage() {
   const { isAuthenticated, user } = useAuthStore();
-  const { isTracking, userLocation, isDriverMode } = useLocationStore();
+  const { isTracking, userLocation, isDriverMode, selectedRequest } = useLocationStore();
   const router = useRouter();
   
   useEffect(() => {
@@ -30,10 +33,10 @@ export default function DashboardPage() {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">
-          {isDriverMode ? 'Emergency Driver Dashboard' : 'Emergency Vehicle Dashboard'}
+          {isDriverMode ? 'Emergency Driver Dashboard' : 'Emergency Assistance Dashboard'}
         </h1>
         
-        {user && !isDriverMode && (
+        {user && !isDriverMode && !selectedRequest && (
           <div className="bg-white shadow rounded-lg p-4 mb-6">
             <div className="flex justify-between items-center">
               <div>
@@ -64,13 +67,15 @@ export default function DashboardPage() {
         )}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Map */}
           <div className="lg:col-span-2">
-            <div className="bg-white shadow rounded-lg overflow-hidden">
+            {/* Map Component */}
+            <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
               <div className="p-4 border-b">
                 <h2 className="text-lg font-medium">Location Map</h2>
                 <p className="text-sm text-gray-500">
                   {isDriverMode 
-                    ? "View client locations and your position" 
+                    ? "View client requests and your position" 
                     : "View nearby emergency vehicles"
                   }
                 </p>
@@ -78,37 +83,50 @@ export default function DashboardPage() {
               <MapComponent />
             </div>
             
-            {/* Driver Mode Panel - Only visible in desktop view for large screens */}
-            <div className="mt-6 hidden lg:block">
-              <DriverModePanel />
-            </div>
+            {/* Chat/Messaging or Request Help */}
+            {selectedRequest ? (
+              <MessageCenter />
+            ) : (
+              !isDriverMode && <RequestEmergencyHelp />
+            )}
+            
+            {/* Driver Mode Panel for Large Screens */}
+            {!selectedRequest && (
+              <div className="mt-6 hidden lg:block">
+                <DriverModePanel />
+              </div>
+            )}
           </div>
           
+          {/* Right Column - Vehicles List or Driver Requests */}
           <div className="lg:col-span-1">
-            {/* Driver Mode Panel - Visible in mobile view */}
-            <div className="mb-6 lg:hidden">
-              <DriverModePanel />
-            </div>
-            
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="p-4 border-b flex justify-between items-center">
-                <div>
-                  <h2 className="text-lg font-medium">
-                    {isDriverMode ? 'Client Requests' : 'Nearby Vehicles'}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    {isDriverMode ? 'People needing assistance' : 'Sorted by distance'}
-                  </p>
-                </div>
-                {isTracking && (
-                  <div className="flex items-center text-xs text-green-600">
-                    <div className="w-2 h-2 rounded-full bg-green-500 mr-1 animate-pulse"></div>
-                    Live updates
-                  </div>
-                )}
+            {/* Driver Mode Panel for Mobile View */}
+            {!selectedRequest && (
+              <div className="mb-6 lg:hidden">
+                <DriverModePanel />
               </div>
-              <VehicleList />
-            </div>
+            )}
+            
+            {/* Driver Request List or Vehicle List */}
+            {isDriverMode ? (
+              !selectedRequest && <DriverRequestList />
+            ) : (
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="p-4 border-b flex justify-between items-center">
+                  <div>
+                    <h2 className="text-lg font-medium">Nearby Vehicles</h2>
+                    <p className="text-sm text-gray-500">Sorted by distance</p>
+                  </div>
+                  {isTracking && (
+                    <div className="flex items-center text-xs text-green-600">
+                      <div className="w-2 h-2 rounded-full bg-green-500 mr-1 animate-pulse"></div>
+                      Live updates
+                    </div>
+                  )}
+                </div>
+                <VehicleList />
+              </div>
+            )}
           </div>
         </div>
       </main>

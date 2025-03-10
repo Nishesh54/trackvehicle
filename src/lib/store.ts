@@ -8,6 +8,48 @@ export const VEHICLE_TYPES = {
   POLICE_CAR: 'Police Car',
 };
 
+// Emergency request types
+export const REQUEST_TYPES = {
+  MEDICAL: 'Medical Emergency',
+  FIRE: 'Fire Emergency',
+  POLICE: 'Police Emergency',
+  OTHER: 'Other Emergency',
+};
+
+// Request status types
+export const REQUEST_STATUS = {
+  PENDING: 'pending',
+  ACCEPTED: 'accepted',
+  REJECTED: 'rejected',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+};
+
+// Interface for emergency requests
+export interface EmergencyRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  location: { lat: number; lng: number };
+  status: typeof REQUEST_STATUS[keyof typeof REQUEST_STATUS];
+  type: typeof REQUEST_TYPES[keyof typeof REQUEST_TYPES];
+  description: string;
+  createdAt: number;
+  driverId?: string;
+  driverName?: string;
+  estimatedArrivalTime?: number;
+  messages: Message[];
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: number;
+  isDriver: boolean;
+}
+
 interface LocationState {
   userLocation: { lat: number; lng: number } | null;
   vehicles: Vehicle[];
@@ -22,6 +64,12 @@ interface LocationState {
   driverStatus: 'available' | 'responding' | 'unavailable';
   clientsTracking: { id: string; location: { lat: number; lng: number } }[];
   
+  // Emergency Request related
+  activeRequests: EmergencyRequest[];
+  userActiveRequest: EmergencyRequest | null;
+  selectedRequest: EmergencyRequest | null;
+  newMessage: string;
+  
   // Actions
   setUserLocation: (location: { lat: number; lng: number } | null) => void;
   setVehicles: (vehicles: Vehicle[]) => void;
@@ -34,6 +82,16 @@ interface LocationState {
   setDriverVehicleType: (type: string) => void;
   setDriverStatus: (status: 'available' | 'responding' | 'unavailable') => void;
   respondToClient: (clientId: string) => void;
+
+  // Emergency Request actions
+  createEmergencyRequest: (type: typeof REQUEST_TYPES[keyof typeof REQUEST_TYPES], description: string) => void;
+  acceptRequest: (requestId: string) => void;
+  rejectRequest: (requestId: string) => void;
+  completeRequest: (requestId: string) => void;
+  cancelRequest: (requestId: string) => void;
+  sendMessage: (requestId: string, content: string) => void;
+  setNewMessage: (message: string) => void;
+  selectRequest: (requestId: string | null) => void;
 }
 
 export const useLocationStore = create<LocationState>((set, get) => ({
@@ -49,6 +107,12 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   driverVehicleId: null,
   driverStatus: 'available',
   clientsTracking: [],
+  
+  // Emergency Request related
+  activeRequests: [],
+  userActiveRequest: null,
+  selectedRequest: null,
+  newMessage: '',
 
   setUserLocation: (location) => {
     set({ userLocation: location });
@@ -290,12 +354,346 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       
       simulateJourney();
     }
+  },
+
+  // Emergency Request actions
+  createEmergencyRequest: (type, description) => {
+    const { userLocation, userActiveRequest } = get();
+    
+    // Can't create a new request if there's an active one or no location
+    if (userActiveRequest || !userLocation) {
+      set({ 
+        error: userActiveRequest ? 'You already have an active request' : 'Location not available'
+      });
+      return;
+    }
+    
+    // Create a new request
+    const newRequest: EmergencyRequest = {
+      id: `request-${Date.now()}`,
+      userId: '1', // In a real app, this would come from auth
+      userName: 'Current User', // In a real app, this would come from auth
+      location: userLocation,
+      status: REQUEST_STATUS.PENDING,
+      type,
+      description,
+      createdAt: Date.now(),
+      messages: []
+    };
+    
+    // Add to active requests and set as user's active request
+    set(state => ({ 
+      activeRequests: [...state.activeRequests, newRequest],
+      userActiveRequest: newRequest,
+      // Auto-start tracking when creating a request
+      isTracking: true 
+    }));
+    
+    // Make sure tracking is on
+    get().startTracking();
+  },
+  
+  acceptRequest: (requestId) => {
+    const { activeRequests, driverVehicleId, userLocation } = get();
+    
+    // Must be in driver mode and have location to accept requests
+    if (!driverVehicleId || !userLocation) {
+      set({ error: 'You must be in driver mode to accept requests' });
+      return;
+    }
+    
+    // Find the request
+    const request = activeRequests.find(r => r.id === requestId);
+    if (!request || request.status !== REQUEST_STATUS.PENDING) {
+      set({ error: 'Request not available for acceptance' });
+      return;
+    }
+    
+    // Update the request status
+    const updatedRequests = activeRequests.map(r => 
+      r.id === requestId
+        ? { 
+            ...r, 
+            status: REQUEST_STATUS.ACCEPTED, 
+            driverId: driverVehicleId,
+            driverName: 'Emergency Driver', // In a real app, use actual driver name
+            estimatedArrivalTime: Math.floor(Math.random() * 10) + 2 // 2-12 minutes
+          }
+        : r
+    );
+    
+    // Update status and respond to the client
+    set({ activeRequests: updatedRequests });
+    get().setDriverStatus('responding');
+    get().respondToClient(request.userId);
+    
+    // Add a system message about acceptance
+    const systemMessage: Message = {
+      id: `msg-${Date.now()}`,
+      senderId: 'system',
+      senderName: 'System',
+      content: 'Your request has been accepted. Help is on the way!',
+      timestamp: Date.now(),
+      isDriver: false
+    };
+    
+    // Add the message to the request
+    const updatedRequestsWithMessage = updatedRequests.map(r => 
+      r.id === requestId
+        ? { ...r, messages: [...r.messages, systemMessage] }
+        : r
+    );
+    
+    set({ activeRequests: updatedRequestsWithMessage });
+  },
+  
+  rejectRequest: (requestId) => {
+    const { activeRequests } = get();
+    
+    // Find the request
+    const request = activeRequests.find(r => r.id === requestId);
+    if (!request || request.status !== REQUEST_STATUS.PENDING) {
+      set({ error: 'Request not available for rejection' });
+      return;
+    }
+    
+    // Update the request status
+    const updatedRequests = activeRequests.map(r => 
+      r.id === requestId
+        ? { ...r, status: REQUEST_STATUS.REJECTED }
+        : r
+    );
+    
+    set({ activeRequests: updatedRequests });
+    
+    // Add a system message about rejection
+    const systemMessage: Message = {
+      id: `msg-${Date.now()}`,
+      senderId: 'system',
+      senderName: 'System',
+      content: 'Your request could not be accepted by this driver. Looking for another driver...',
+      timestamp: Date.now(),
+      isDriver: false
+    };
+    
+    // Add the message to the request
+    const updatedRequestsWithMessage = updatedRequests.map(r => 
+      r.id === requestId
+        ? { ...r, messages: [...r.messages, systemMessage] }
+        : r
+    );
+    
+    set({ activeRequests: updatedRequestsWithMessage });
+  },
+  
+  completeRequest: (requestId) => {
+    const { activeRequests, userActiveRequest } = get();
+    
+    // Find the request
+    const request = activeRequests.find(r => r.id === requestId);
+    if (!request || request.status !== REQUEST_STATUS.ACCEPTED) {
+      set({ error: 'Request cannot be completed' });
+      return;
+    }
+    
+    // Update the request status
+    const updatedRequests = activeRequests.map(r => 
+      r.id === requestId
+        ? { ...r, status: REQUEST_STATUS.COMPLETED }
+        : r
+    );
+    
+    // Clear user's active request if it was theirs
+    const newUserActiveRequest = 
+      userActiveRequest && userActiveRequest.id === requestId
+        ? null
+        : userActiveRequest;
+    
+    set({ 
+      activeRequests: updatedRequests,
+      userActiveRequest: newUserActiveRequest
+    });
+    
+    // If driver, update status back to available
+    if (get().isDriverMode) {
+      get().setDriverStatus('available');
+    }
+    
+    // Add a system message about completion
+    const systemMessage: Message = {
+      id: `msg-${Date.now()}`,
+      senderId: 'system',
+      senderName: 'System',
+      content: 'The emergency service has been completed.',
+      timestamp: Date.now(),
+      isDriver: false
+    };
+    
+    // Add the message to the request
+    const updatedRequestsWithMessage = updatedRequests.map(r => 
+      r.id === requestId
+        ? { ...r, messages: [...r.messages, systemMessage] }
+        : r
+    );
+    
+    set({ 
+      activeRequests: updatedRequestsWithMessage,
+      selectedRequest: null  // Clear selected request on completion
+    });
+  },
+  
+  cancelRequest: (requestId) => {
+    const { activeRequests, userActiveRequest } = get();
+    
+    // Find the request
+    const request = activeRequests.find(r => r.id === requestId);
+    if (!request || (request.status !== REQUEST_STATUS.PENDING && request.status !== REQUEST_STATUS.ACCEPTED)) {
+      set({ error: 'Request cannot be cancelled' });
+      return;
+    }
+    
+    // Update the request status
+    const updatedRequests = activeRequests.map(r => 
+      r.id === requestId
+        ? { ...r, status: REQUEST_STATUS.CANCELLED }
+        : r
+    );
+    
+    // Clear user's active request if it was theirs
+    const newUserActiveRequest = 
+      userActiveRequest && userActiveRequest.id === requestId
+        ? null
+        : userActiveRequest;
+    
+    set({ 
+      activeRequests: updatedRequests,
+      userActiveRequest: newUserActiveRequest
+    });
+    
+    // If driver and this was their accepted request, update status back to available
+    if (get().isDriverMode && request.driverId === get().driverVehicleId) {
+      get().setDriverStatus('available');
+    }
+    
+    // Add a system message about cancellation
+    const systemMessage: Message = {
+      id: `msg-${Date.now()}`,
+      senderId: 'system',
+      senderName: 'System',
+      content: 'The request has been cancelled.',
+      timestamp: Date.now(),
+      isDriver: false
+    };
+    
+    // Add the message to the request
+    const updatedRequestsWithMessage = updatedRequests.map(r => 
+      r.id === requestId
+        ? { ...r, messages: [...r.messages, systemMessage] }
+        : r
+    );
+    
+    set({ 
+      activeRequests: updatedRequestsWithMessage,
+      selectedRequest: null  // Clear selected request on cancellation
+    });
+  },
+  
+  sendMessage: (requestId, content) => {
+    if (!content.trim()) return;
+    
+    const { activeRequests, isDriverMode } = get();
+    
+    // Find the request
+    const request = activeRequests.find(r => r.id === requestId);
+    if (!request) {
+      set({ error: 'Request not found' });
+      return;
+    }
+    
+    // Create a new message
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      senderId: isDriverMode ? request.driverId || 'driver' : request.userId,
+      senderName: isDriverMode ? 'Driver' : request.userName,
+      content,
+      timestamp: Date.now(),
+      isDriver: isDriverMode
+    };
+    
+    // Add the message to the request
+    const updatedRequests = activeRequests.map(r => 
+      r.id === requestId
+        ? { ...r, messages: [...r.messages, newMessage] }
+        : r
+    );
+    
+    set({ 
+      activeRequests: updatedRequests,
+      newMessage: '' // Clear the message input
+    });
+  },
+  
+  setNewMessage: (message) => {
+    set({ newMessage: message });
+  },
+  
+  selectRequest: (requestId) => {
+    const { activeRequests } = get();
+    
+    if (!requestId) {
+      set({ selectedRequest: null });
+      return;
+    }
+    
+    const request = activeRequests.find(r => r.id === requestId);
+    set({ selectedRequest: request || null });
   }
 }));
 
-// Initialize with mock data
+// Add some mock emergency requests
 setTimeout(() => {
+  const mockRequests: EmergencyRequest[] = [
+    {
+      id: 'request-1',
+      userId: 'user-1',
+      userName: 'John Doe',
+      location: { lat: 51.503, lng: -0.087 },
+      status: REQUEST_STATUS.PENDING,
+      type: REQUEST_TYPES.MEDICAL,
+      description: 'Person with chest pain needs immediate assistance',
+      createdAt: Date.now() - 300000, // 5 minutes ago
+      messages: [
+        {
+          id: 'msg-1',
+          senderId: 'user-1',
+          senderName: 'John Doe',
+          content: 'Please hurry, the pain is getting worse',
+          timestamp: Date.now() - 280000,
+          isDriver: false
+        }
+      ]
+    },
+    {
+      id: 'request-2',
+      userId: 'user-2',
+      userName: 'Jane Smith',
+      location: { lat: 51.508, lng: -0.095 },
+      status: REQUEST_STATUS.PENDING,
+      type: REQUEST_TYPES.FIRE,
+      description: 'Small kitchen fire in apartment building',
+      createdAt: Date.now() - 180000, // 3 minutes ago
+      messages: []
+    }
+  ];
+  
   useLocationStore.getState().setVehicles(mockVehicles);
+  
+  // Add mock emergency requests
+  const currentState = useLocationStore.getState();
+  useLocationStore.setState({
+    ...currentState,
+    activeRequests: mockRequests
+  });
   
   // Simulate vehicle movement at regular intervals
   setInterval(() => {
