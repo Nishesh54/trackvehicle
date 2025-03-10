@@ -70,24 +70,6 @@ const requestIcons = {
     html: `<div style="background-color:#ef4444;padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">🚑</div>`,
     iconSize: [30, 30],
     iconAnchor: [15, 15]
-  }),
-  [REQUEST_TYPES.FIRE]: L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style="background-color:#f97316;padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">🚒</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15]
-  }),
-  [REQUEST_TYPES.POLICE]: L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style="background-color:#3b82f6;padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">🚓</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15]
-  }),
-  [REQUEST_TYPES.OTHER]: L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style="background-color:#6b7280;padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">🚨</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15]
   })
 };
 
@@ -100,7 +82,7 @@ const getRequestIcon = (type: string, status: string) => {
     // Add a pulsing effect by modifying the icon
     return L.divIcon({
       className: 'custom-div-icon',
-      html: `<div class="pulsing-request" style="background-color:${type === REQUEST_TYPES.MEDICAL ? '#ef4444' : type === REQUEST_TYPES.FIRE ? '#f97316' : type === REQUEST_TYPES.POLICE ? '#3b82f6' : '#6b7280'};padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">${type === REQUEST_TYPES.MEDICAL ? '🚑' : type === REQUEST_TYPES.FIRE ? '🚒' : type === REQUEST_TYPES.POLICE ? '🚓' : '🚨'}</div>`,
+      html: `<div class="pulsing-request" style="background-color:${type === REQUEST_TYPES.MEDICAL ? '#ef4444' : '#6b7280'};padding:10px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 2px 5px rgba(0,0,0,0.2);">${type === REQUEST_TYPES.MEDICAL ? '🚑' : '🚨'}</div>`,
       iconSize: [30, 30],
       iconAnchor: [15, 15]
     });
