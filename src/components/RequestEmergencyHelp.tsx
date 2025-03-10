@@ -39,10 +39,6 @@ const RequestEmergencyHelp = () => {
       switch (userActiveRequest.type) {
         case REQUEST_TYPES.MEDICAL:
           return '🚑';
-        case REQUEST_TYPES.FIRE:
-          return '🚒';
-        case REQUEST_TYPES.POLICE:
-          return '🚓';
         default:
           return '🚨';
       }
