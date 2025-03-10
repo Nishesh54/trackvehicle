@@ -7,6 +7,8 @@ interface LocationState {
   nearbyVehicles: Vehicle[];
   isLoading: boolean;
   error: string | null;
+  isTracking: boolean;
+  watchId: number | null;
   
   // Actions
   setUserLocation: (location: { lat: number; lng: number } | null) => void;
@@ -14,6 +16,8 @@ interface LocationState {
   updateNearbyVehicles: () => void;
   setError: (error: string | null) => void;
   setLoading: (isLoading: boolean) => void;
+  startTracking: () => void;
+  stopTracking: () => void;
 }
 
 export const useLocationStore = create<LocationState>((set, get) => ({
@@ -22,6 +26,8 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   nearbyVehicles: [],
   isLoading: false,
   error: null,
+  isTracking: false,
+  watchId: null,
 
   setUserLocation: (location) => {
     set({ userLocation: location });
@@ -66,11 +72,96 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   
   setError: (error) => set({ error }),
   setLoading: (isLoading) => set({ isLoading }),
+
+  startTracking: () => {
+    const { watchId } = get();
+    
+    // If already tracking, don't start a new watch
+    if (watchId !== null) return;
+    
+    set({ isLoading: true, error: null });
+    
+    if (!navigator.geolocation) {
+      set({ 
+        error: 'Geolocation is not supported by your browser',
+        isLoading: false 
+      });
+      return;
+    }
+    
+    try {
+      // Start watching position
+      const id = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          set({ 
+            userLocation: { lat: latitude, lng: longitude },
+            isLoading: false,
+            isTracking: true,
+            error: null
+          });
+          // Update nearby vehicles whenever location changes
+          get().updateNearbyVehicles();
+        },
+        (error) => {
+          console.error('Error tracking location:', error);
+          set({ 
+            error: `Location tracking error: ${error.message}`,
+            isLoading: false,
+            isTracking: false 
+          });
+        },
+        { 
+          enableHighAccuracy: true, 
+          maximumAge: 0,
+          timeout: 5000
+        }
+      );
+      
+      set({ watchId: id });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'Failed to start location tracking',
+        isLoading: false,
+        isTracking: false
+      });
+    }
+  },
+  
+  stopTracking: () => {
+    const { watchId } = get();
+    
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      set({ watchId: null, isTracking: false });
+    }
+  }
 }));
 
 // Initialize with mock data
 setTimeout(() => {
   useLocationStore.getState().setVehicles(mockVehicles);
+  
+  // Simulate vehicle movement at regular intervals
+  setInterval(() => {
+    const { vehicles } = useLocationStore.getState();
+    
+    // Move vehicles slightly in random directions
+    const updatedVehicles = vehicles.map(vehicle => {
+      const latChange = (Math.random() - 0.5) * 0.002; // Small random change
+      const lngChange = (Math.random() - 0.5) * 0.002;
+      
+      return {
+        ...vehicle,
+        location: {
+          lat: vehicle.location.lat + latChange,
+          lng: vehicle.location.lng + lngChange
+        }
+      };
+    });
+    
+    useLocationStore.getState().setVehicles(updatedVehicles);
+  }, 5000); // Update every 5 seconds
 }, 100);
 
 // Helper function to calculate distance between two points using Haversine formula
@@ -158,8 +249,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 500);
     });
+    // Stop location tracking when logging out
+    useLocationStore.getState().stopTracking();
     set({ user: null, isAuthenticated: false, isLoading: false });
   },
   
   setError: (error) => set({ error }),
-})); 
+})) 

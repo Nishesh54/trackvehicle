@@ -9,6 +9,7 @@ import VehicleList from '../../components/VehicleList';
 
 export default function DashboardPage() {
   const { isAuthenticated, user } = useAuthStore();
+  const { isTracking, userLocation } = useLocationStore();
   const router = useRouter();
   
   useEffect(() => {
@@ -31,8 +32,31 @@ export default function DashboardPage() {
         
         {user && (
           <div className="bg-white shadow rounded-lg p-4 mb-6">
-            <p className="text-lg font-medium">Welcome, {user.name}</p>
-            <p className="text-gray-500">Your location is being shared with emergency services.</p>
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-lg font-medium">Welcome, {user.name}</p>
+                <p className="text-gray-500">
+                  {isTracking 
+                    ? "Your location is being shared in real-time with emergency services" 
+                    : "Enable real-time tracking to share your location with emergency services"}
+                </p>
+              </div>
+              
+              {userLocation && (
+                <div className="text-sm text-gray-600">
+                  <div>Current coordinates:</div>
+                  <div className="font-mono">
+                    {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+                  </div>
+                  <div className={`text-xs mt-1 ${isTracking ? 'text-green-600' : 'text-gray-500'}`}>
+                    {isTracking 
+                      ? "Real-time updates active" 
+                      : "Single location update"
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
         
@@ -49,9 +73,17 @@ export default function DashboardPage() {
           
           <div className="lg:col-span-1">
             <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-medium">Nearby Vehicles</h2>
-                <p className="text-sm text-gray-500">Sorted by distance</p>
+              <div className="p-4 border-b flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-medium">Nearby Vehicles</h2>
+                  <p className="text-sm text-gray-500">Sorted by distance</p>
+                </div>
+                {isTracking && (
+                  <div className="flex items-center text-xs text-green-600">
+                    <div className="w-2 h-2 rounded-full bg-green-500 mr-1 animate-pulse"></div>
+                    Live updates
+                  </div>
+                )}
               </div>
               <VehicleList />
             </div>
