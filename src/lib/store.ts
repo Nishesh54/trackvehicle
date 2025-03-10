@@ -266,7 +266,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     if (driverVehicleId) {
       const updatedVehicles = vehicles.map(vehicle => 
         vehicle.id === driverVehicleId
-          ? { ...vehicle, status: 'responding' }
+          ? { ...vehicle, status: 'responding' as const }
           : vehicle
       );
       set({ vehicles: updatedVehicles });
